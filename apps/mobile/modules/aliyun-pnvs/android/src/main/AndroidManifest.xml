@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+  <!-- 阿里云号码认证 SDK 必需权限 -->
+  <uses-permission android:name="android.permission.INTERNET" />
+  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+  <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+  <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+  <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+  <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+
+  <!--
+    阿里云号码认证 SDK 必需的 Activity 声明
+    SDK 没在自己的 .aar Manifest 里声明这些，要求集成方在使用 SDK 的 App Manifest 中加上
+  -->
+  <application>
+    <activity
+      android:name="com.mobile.auth.gatewayauth.LoginAuthActivity"
+      android:configChanges="orientation|keyboardHidden|screenSize"
+      android:exported="false"
+      android:launchMode="singleTop"
+      android:screenOrientation="behind"
+      android:theme="@style/authsdk_activity_dialog" />
+
+    <activity
+      android:name="com.mobile.auth.gatewayauth.PrivacyDialogActivity"
+      android:configChanges="orientation|keyboardHidden|screenSize"
+      android:exported="false"
+      android:launchMode="singleTop"
+      android:screenOrientation="behind"
+      android:theme="@style/authsdk_activity_dialog" />
+
+    <activity
+      android:name="com.mobile.auth.gatewayauth.activity.AuthWebVeiwActivity"
+      android:configChanges="orientation|keyboardHidden|screenSize"
+      android:exported="false"
+      android:launchMode="singleTop"
+      android:screenOrientation="behind" />
+  </application>
+
+</manifest>

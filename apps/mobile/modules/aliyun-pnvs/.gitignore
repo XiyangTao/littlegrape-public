@@ -1,0 +1,26 @@
+# Build outputs
+/android/build/
+/build/
+
+# Dependencies
+/node_modules/
+
+# IDE / OS
+.DS_Store
+*.swp
+*.tsbuildinfo
+
+# Pod workspace
+/ios/Pods/
+/ios/Podfile.lock
+
+# Third-party SDK binaries — NOT redistributable
+# Download from https://help.aliyun.com/product/30090.html and place into:
+#   ios/ATAuthSDK.xcframework
+#   ios/YTXOperators.xcframework
+#   ios/YTXMonitor.xcframework
+#   android/libs/
+/ios/ATAuthSDK.xcframework/
+/ios/YTXOperators.xcframework/
+/ios/YTXMonitor.xcframework/
+/android/libs/

@@ -1,0 +1,1601 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("POSTGRES_DATABASE_URL")
+}
+
+// 用户表 - 支持多种登录方式
+model User {
+  id        String   @id @default(cuid())
+  email     String?  @unique // 邮箱（可选，邮箱注册时必填）
+  username  String?  @unique // 用户名（可选）
+  password  String?  // 存储加密后的密码（邮箱注册时必填）
+  phone     String?  @unique // 手机号（手机号登录时必填）
+
+  // 第三方登录标识
+  wechatOpenId   String? @unique // 微信OpenID
+  wechatUnionId  String? @unique // 微信UnionID
+  wechatNickname String?         // 微信昵称（绑定时保存）
+  wechatAvatar   String?         // 微信头像（绑定时保存）
+
+  // 用户信息
+  nickname   String? @unique // 显示昵称
+  avatar     String?  // 头像URL
+  gender     String?  // 性别: 'male' | 'female' | 'private'
+  birthday   String?  // 生日，格式: 'YYYY-MM-DD'
+  bio        String?  // 个人签名/简介，最多200字符
+  inviteCode String?  @unique // 用户专属邀请码
+  isActive   Boolean  @default(true) // 账户状态
+
+  // 推送 Token
+  pushToken  String?  // Expo Push Token
+  pushPlatform String? // 'ios' | 'android'
+
+  // 社交计数（非规范化，避免每次 COUNT）
+  followingCount Int @default(0) // 关注数
+  followerCount  Int @default(0) // 粉丝数
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+// 邮箱验证码表 - 用于注册和密码重置
+model EmailVerificationCode {
+  id        String   @id @default(cuid())
+  email     String   // 邮箱地址
+  code      String   // 6位数验证码
+  type      String   // 类型：register | password_reset
+  expiresAt DateTime // 过期时间（5-10分钟）
+  attempts  Int      @default(0) // 尝试次数（防暴力破解）
+  verified  Boolean  @default(false) // 是否已验证
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // 确保同一邮箱同一类型同时只能有一个有效验证码
+  @@unique([email, type])
+  @@map("email_verification_codes")
+}
+
+// 内容审核日志表（合规留痕，满足《网安法》要求保留 6 个月审核记录）
+model ModerationLog {
+  id          String   @id @default(cuid())
+  userId      String?  // 匿名场景可空
+  contentType String   // 'nickname' | 'bio' | 'avatar' | 'other'
+  content     String   @db.Text // 原文或图片 URL（截断至 500 字符）
+  result      String   // 'pass' | 'block' | 'error'
+  hitLabels   String?  // 命中标签，逗号分隔：porn,ad,political
+  hitWords    String?  // 命中词，逗号分隔（文本审核才有）
+  provider    String   @default("aliyun") // 审核服务商
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([result, createdAt])
+  @@map("moderation_logs")
+}
+
+// 每日用量汇总表
+model UserDailyUsage {
+  id             String   @id @default(cuid())
+  userId         String   // 用户ID
+  serviceType    String   // 服务类型: ai | tts | asr | pronunciation | translation | text_translation
+  date           String   // 日期: YYYY-MM-DD
+  totalAmount    Int      @default(0) // 当日总用量: ai=tokens / tts=字符数 / asr=毫秒
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, serviceType, date])
+  @@index([userId, date])
+  @@map("user_daily_usages")
+}
+
+// ==================== 单词学习模块 ====================
+
+// 单词主表（只存原形词 lemma）
+model Word {
+  id          String   @id @default(cuid())
+  word        String   @unique // 单词原形（lemma）
+  phoneticUs  String?  // 美式音标 /əˈpriːʃieɪt/
+  phoneticUk  String?  // 英式音标
+  audioUsUrl  String?  // 美式发音音频URL
+  audioUkUrl  String?  // 英式发音音频URL
+  aiExplanation    String? @db.Text // AI讲解文本
+  audioAiExplanationUrl String? // AI讲解音频URL
+
+  pos         String?  // 主要词性 v./n./adj./adv.
+  meaningCn   String   // 中文释义（简洁版，用于列表展示）
+  meaningEn   String?  // 英文释义
+
+  level       String   @default("basic") // 难度：basic/intermediate/advanced
+
+  // BNC/COCA 词族数据（用于词汇量测试）
+  bncCocaLevel Int?    // BNC/COCA 词族级别 1-25（1=最常用1000词族，25=最不常用）
+  isHeadword   Boolean @default(false) // 是否是词族代表词（用于词汇量测试抽样）
+
+  // 词族自关联（变形词指向词族代表词，headword 自身为 null）
+  headwordId   String?
+  headwordRef  Word?    @relation("WordFamily", fields: [headwordId], references: [id], onDelete: SetNull)
+  derivedWords Word[]   @relation("WordFamily")
+
+  memoryTip   String?  // 记忆技巧
+
+  sourceType       String   @default("dictionary") // 数据来源：dictionary=词典API / ai_generated=AI生成
+  verifiedMeanings String?  // 义项验证结果：deepseek-A/B/C/D
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // 关联
+  meanings        WordMeaning[]
+  examples        WordExample[]
+  collocations    WordCollocation[]
+  etymology       WordEtymology?
+  practices       WordPractice[]
+  tags            WordTag[]
+  confusables     WordConfusable[]
+  inflections     WordInflection[]
+  userProgress    UserWordProgress[]
+  userFavorites   UserFavoriteWord[]
+  userDifficults  UserDifficultWord[]
+
+  @@index([level])
+  @@index([bncCocaLevel])
+  @@index([isHeadword])
+  @@index([isHeadword, bncCocaLevel])
+  @@index([headwordId])
+  @@map("words")
+}
+
+// 单词变形词表（存储变形词与原形的关系）
+model WordInflection {
+  id          String   @id @default(cuid())
+  wordId      String
+  word        Word     @relation(fields: [wordId], references: [id], onDelete: Cascade)
+
+  inflection  String   // 变形词：goes, went, going, gone
+  type        String   // 变形类型：
+                       // 动词: third_person(第三人称单数), past_tense(过去式),
+                       //       past_participle(过去分词), present_participle(现在分词)
+                       // 名词: plural(复数)
+                       // 形容词/副词: comparative(比较级), superlative(最高级)
+                       // 派生词: adjective_form(形容词形式), adverb_form(副词形式), noun_form(名词形式)
+
+  createdAt   DateTime @default(now())
+
+  @@unique([inflection])  // 变形词全局唯一，方便查询
+  @@index([wordId])
+  @@index([type])
+  @@map("word_inflections")
+}
+
+// 单词多义项表
+model WordMeaning {
+  id          String   @id @default(cuid())
+  wordId      String
+  word        Word     @relation(fields: [wordId], references: [id], onDelete: Cascade)
+
+  pos         String   // 词性
+  meaningCn   String   // 中文释义
+  meaningEn   String?  // 英文释义
+  exampleEn   String?  // 该义项的例句（英文）
+  exampleCn   String?  // 该义项的例句（中文）
+  register    String?  // 语域标注（中文），如：俚语、口语、正式、过时等
+  orderIndex  Int      @default(0) // 排序
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([wordId])
+  @@map("word_meanings")
+}
+
+// 单词例句表
+model WordExample {
+  id          String   @id @default(cuid())
+  wordId      String
+  word        Word     @relation(fields: [wordId], references: [id], onDelete: Cascade)
+
+  en          String   // 英文例句
+  cn          String   // 中文翻译
+  audioUrl    String?  // 例句音频URL
+  level       String   @default("easy") // 难度：easy/medium/hard
+  orderIndex  Int      @default(0) // 排序
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([wordId])
+  @@map("word_examples")
+}
+
+// 单词搭配表
+model WordCollocation {
+  id          String   @id @default(cuid())
+  wordId      String
+  word        Word     @relation(fields: [wordId], references: [id], onDelete: Cascade)
+
+  pattern     String   // 搭配模式 "appreciate + 名词"
+  examples    Json     // 例子数组 ["appreciate your help", "appreciate the opportunity"]
+  meaningCn   String?  // 中文说明
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([wordId])
+  @@map("word_collocations")
+}
+
+// 单词词根词缀表
+model WordEtymology {
+  id            String   @id @default(cuid())
+  wordId        String   @unique
+  word          Word     @relation(fields: [wordId], references: [id], onDelete: Cascade)
+
+  root          String?  // 词根 "preci-"
+  rootMeaning   String?  // 词根含义 "价值"
+  prefix        String?  // 前缀
+  prefixMeaning String?  // 前缀含义
+  suffix        String?  // 后缀
+  suffixMeaning String?  // 后缀含义
+  analysis      String?  // 分析说明
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("word_etymologies")
+}
+
+// 单词练习题表
+model WordPractice {
+  id        String   @id @default(cuid())
+  wordId    String
+  word      Word     @relation(fields: [wordId], references: [id], onDelete: Cascade)
+
+  type      String   // 题型：fill_blank / complete_translation / scene_choice
+  data      Json     // 题目完整数据（JSON，结构因题型而异）
+  score     Float?   // AI 评分 1-10（可空，未评分时为 null）
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([wordId])
+  @@index([wordId, type])
+  @@map("word_practices")
+}
+
+// 单词标签关联表
+model WordTag {
+  id        String   @id @default(cuid())
+  wordId    String
+  word      Word     @relation(fields: [wordId], references: [id], onDelete: Cascade)
+
+  tag       String   // 标签：四级/六级/考研/托福/雅思/旅行/职场
+
+  createdAt DateTime @default(now())
+
+  @@unique([wordId, tag])
+  @@index([tag])
+  @@map("word_tags")
+}
+
+// 易混词关联表
+model WordConfusable {
+  id              String   @id @default(cuid())
+  wordId          String
+  word            Word     @relation(fields: [wordId], references: [id], onDelete: Cascade)
+
+  confusableWord  String   // 易混词
+
+  createdAt       DateTime @default(now())
+
+  @@unique([wordId, confusableWord])
+  @@index([wordId])
+  @@map("word_confusables")
+}
+
+// ==================== 用户学习模块 ====================
+
+// 用户单词学习进度表
+model UserWordProgress {
+  id          String    @id @default(cuid())
+  userId      String    // 用户ID
+  wordId      String    // 单词ID
+  word        Word      @relation(fields: [wordId], references: [id], onDelete: Cascade)
+
+  status      String    @default("learned") // 学习状态：learned(已学习) / mastered(已掌握)
+  learnedAt   DateTime  @default(now())     // 发音通过时间（标记为已学习）
+  masteredAt  DateTime?                     // 练习通过时间（标记为已掌握，可为空）
+
+  isSkipped   Boolean   @default(false)     // 是否为跳过（用户标记已掌握，不计入学习统计）
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([userId, wordId])
+  @@index([userId])
+  @@index([userId, status])
+  @@index([userId, updatedAt])
+  @@map("user_word_progress")
+}
+
+// 用户每日学习统计表（服务端缓存，可选保留）
+model UserDailyStats {
+  id             String   @id @default(cuid())
+  userId         String   // 用户ID
+  eventDate      String   // 日期：YYYY-MM-DD（客户端本地日期）
+
+  learnedCount   Int      @default(0) // 今日学习单词数（发音通过）
+  masteredCount  Int      @default(0) // 今日掌握单词数（练习通过）
+  reviewedCount  Int      @default(0) // 今日复习单词数
+  grammarPracticedCount Int @default(0) // 今日语法练习数
+  grammarMasteredCount  Int @default(0) // 今日语法掌握数
+  phonemePracticedCount Int @default(0) // 今日发音练习次数
+
+  createdAt      DateTime @default(now())
+  serverTime     DateTime @updatedAt    // 服务端时间（写入/更新时间）
+
+  @@unique([userId, eventDate])
+  @@index([userId])
+  @@index([userId, serverTime])
+  @@map("user_daily_stats")
+}
+
+// 用户学习事件表 - 双向同步的唯一数据源
+model UserLearningEvent {
+  id         String   @id                    // 客户端生成的唯一ID: {userId}_{eventType}_{entityType}_{entityId}_{eventTime}
+  userId     String                          // 用户ID
+  eventType  String                          // 事件类型: word_learned | word_mastered | word_reviewed
+  entityType String?                         // 实体类型: word
+  entityId   String?                         // 实体ID（如单词ID）
+  quantity   Int      @default(1)            // 数量
+  eventDate  String                          // 客户端本地日期（YYYY-MM-DD）
+  eventTime  BigInt                          // 客户端时间戳（毫秒）
+  serverTime DateTime @default(now())        // 服务端时间（写入时间）
+
+  @@index([userId])
+  @@index([userId, eventDate])
+  @@index([userId, eventTime])
+  @@index([userId, eventType])
+  @@index([userId, serverTime])
+  @@index([userId, eventDate, eventTime])
+  @@map("user_learning_events")
+}
+
+// 用户词汇量测试记录表 - 双向同步
+model UserVocabularyTest {
+  id                  String   @id                    // 客户端生成的唯一ID: {userId}_vocab_test_{eventTime}
+  userId              String                          // 用户ID
+  estimatedVocabulary Int                             // 预估词汇量
+  totalQuestions      Int                             // 总题数
+  correctCount        Int                             // 答对数
+  duration            Int                             // 测试用时（秒）
+  level               String                          // 等级（如 "B1"）
+  levelDescription    String                          // 等级描述
+  confidenceLower     Int                             // 置信区间下限
+  confidenceUpper     Int                             // 置信区间上限
+  eventTime           BigInt                          // 客户端时间戳（毫秒）
+  serverTime          DateTime @default(now())        // 服务端时间（写入时间）
+
+  @@index([userId])
+  @@index([userId, eventTime])
+  @@index([userId, serverTime])
+  @@map("user_vocabulary_tests")
+}
+
+// 用户收藏单词表 - 手动收藏，永久保留
+model UserFavoriteWord {
+  id        String   @id @default(cuid())
+  userId    String   // 用户ID
+  wordId    String   // 单词ID
+  word      Word     @relation(fields: [wordId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, wordId])
+  @@index([userId])
+  @@index([userId, createdAt])
+  @@map("user_favorite_words")
+}
+
+// 用户生词本表 - 答错自动加入，答对自动移出
+model UserDifficultWord {
+  id        String   @id @default(cuid())
+  userId    String   // 用户ID
+  wordId    String   // 单词ID
+  word      Word     @relation(fields: [wordId], references: [id], onDelete: Cascade)
+
+  wrongCount   Int      @default(1)  // 答错次数
+  correctCount Int      @default(0)  // 答对次数（连续答对后移出）
+  lastWrongAt  DateTime @default(now()) // 最近一次答错时间
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, wordId])
+  @@index([userId])
+  @@index([userId, updatedAt])
+  @@map("user_difficult_words")
+}
+
+// ==================== 订阅配额模块 ====================
+
+// 套餐定义表
+model Plan {
+  id            String   @id @default(cuid())
+  planType      String   @unique   // free | basic | pro | max
+  name          String              // 中文名称：免费版、基础版、Pro、Max
+  nameEn        String              // 英文名称：Free、Basic、Pro、Max
+  monthlyPrice  Decimal  @default(0)   // 月付价格（¥）
+  yearlyPrice   Decimal  @default(0)   // 年付价格（¥）
+  costBudget    Decimal  @default(0)   // 成本预算（¥）
+  displayOrder  Int      @default(0)   // 展示排序
+  isActive      Boolean  @default(true) // 是否上架
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  subscriptions UserSubscription[]
+
+  @@map("plans")
+}
+
+// 用户订阅记录表（每次购买/续费/升级 新增 1 行）
+model UserSubscription {
+  id             String    @id @default(cuid())
+  userId         String
+  planId         String
+  plan           Plan      @relation(fields: [planId], references: [id])
+  planType       String    // 冗余存储，快速查询：free | basic | pro | max
+  status         String    @default("active")
+                           // active     — 当前生效
+                           // scheduled  — 待生效（续费，等到期后激活）
+                           // expired    — 已到期
+                           // cancelled  — 已取消（用户取消待生效续费）
+                           // superseded — 被升级替代（中途升级/切换）
+  billingCycle   String    @default("monthly") // monthly | yearly
+  isTrial        Boolean   @default(false)
+  costBudget     Decimal   // 该订阅周期的成本预算快照（¥）
+  costOffset     Decimal   @default(0) // 升级时扣除的旧周期已消耗成本（¥），新周期实际消耗 = 总消耗 - costOffset
+  periodStart    DateTime  // 订阅周期开始
+  periodEnd      DateTime  // 订阅周期结束
+  cancelledAt    DateTime? // 取消时间
+  supersededAt   DateTime? // 被替代时间
+  supersededBy   String?   // 替代此订阅的新订阅 ID
+  orderId        String?   // 关联订单 ID（体验/免费无订单）
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([userId, status])
+  @@index([orderId])
+  @@index([planId])
+  @@map("user_subscriptions")
+}
+
+// ==================== 精读模块 ====================
+
+// 精读文章表
+model ReadingArticle {
+  id          String   @id @default(cuid())
+  title       String
+  titleZh     String?
+  content           String   @db.Text // 英文原文全文
+  contentCompressed String?  @db.Text // AI 改写精炼后的英文（300-400 词）
+  contentZh         String?  @db.Text // 中文翻译
+  level       String   @default("intermediate") // beginner | intermediate | advanced
+  category    String   @default("general") // general | news | story | science | culture
+  wordCount   Int      @default(0)
+  imageUrl    String?
+  isPublished Boolean  @default(false)
+
+  // 来源信息
+  source            String?    // 'rss_bbc' | 'rss_voa' | 'rss_guardian' | 'ai_generated'
+  sourceUrl         String?    @unique // 原文链接（唯一约束防重复导入）
+  sourcePublishedAt DateTime?  // 文章在 RSS 源上的原始发布日期
+  summary      String?    // 英文摘要（一句话）
+  summaryZh    String?    // 中文摘要
+
+  // AI 预处理结构化内容
+  paragraphs      Json?   // ArticleParagraph[] — 逐段讲解
+  keyVocabulary   Json?   // KeyWord[] — 核心生词
+  quiz            Json?   // QuizQuestion[] — 课后练习题
+  audioUrl        String? // 全文 TTS 音频 OSS URL
+  audioTimestamps Json?   // 全文朗读句子级时间戳 [{paragraphIndex, sentence, startMs, endMs}]
+  paragraphAudios Json?   // string[] — 各段 TTS 音频 URL（旧版，不再生成）
+
+  // 背景导读 + 教师角色（v2 多步管道新增）
+  introZh           String?   @db.Text   // 背景导读（旧版，不再生成）
+  introAudioScript  String?   @db.Text   // 导读 TTS 脚本（旧版，不再生成）
+  introAudioUrl     String?              // 导读音频 URL（旧版，不再生成）
+  teacherId         String?              // 教师角色 ID（taozi/putao/qiushui/arthur/annie）
+  pipelineVersion   Int       @default(1) // 1=旧版, 2=新版多步
+
+  // 整篇讲解（v3 新增）
+  explanationScript   String?  @db.Text  // 整篇文章讲解脚本（中文，~800-1000字）
+  explanationAudioUrl String?            // 讲解音频 URL
+  explanationMapping  Json?              // 讲解句子 ↔ 原文句子映射 + 音频时间戳 [{sentence, englishSentence, paragraphIndex, startMs, endMs}]
+
+  // 管道状态
+  pipelineStatus    String  @default("pending") // pending | qualified | compressing | compressed | processing | ready | rejected | compress_failed | failed
+  pipelineFailCount Int     @default(0)          // 管道处理连续失败次数，>=3 时不再自动选取
+  processedAt       DateTime?
+  publishDate    String?  // YYYY-MM-DD（每日精读排序用）
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([level])
+  @@index([category])
+  @@index([isPublished, publishDate])
+  @@index([pipelineStatus])
+  @@map("reading_articles")
+}
+
+// 用户精读进度表
+model UserReadingProgress {
+  id          String    @id @default(cuid())
+  userId      String
+  articleId   String
+  status      String    @default("reading") // reading | completed
+  readTime    Int       @default(0) // 阅读时长（秒）
+  quizScore   Int?      // 理解测试分数
+  completedAt DateTime?
+
+  // 五步流程追踪
+  currentStep      Int  @default(0)  // 0=阅读 1=讲解 2=朗读 3=练习 4=完成
+  currentParagraph Int  @default(0)  // 当前段落索引
+  quizAnswers      Json?             // 答题记录 [{questionId, answer, isCorrect}]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([userId, articleId])
+  @@index([userId])
+  @@index([articleId])
+  @@map("user_reading_progress")
+}
+
+// ==================== 口语日记模块 ====================
+
+// 口语日记记录表
+model UserSpeakingDiary {
+  id          String   @id @default(cuid())
+  userId      String
+  topic       String   // 话题内容
+  topicZh     String?  // 话题中文
+  userText    String   @db.Text // 用户口语转文字
+  aiCorrection String? @db.Text // AI 语法纠错
+  aiSuggestion String? @db.Text // AI 表达建议
+  aiScore     Int?     // AI 评分 1-10
+  audioUrl    String?  // 录音文件 URL
+  duration    Int?     // 录音时长（秒）
+  eventDate   String   // 日期 YYYY-MM-DD
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([userId, eventDate])
+  @@map("user_speaking_diaries")
+}
+
+// ==================== 剧情练习模式 ====================
+
+// 故事线（角色线：Mia School Life、Alex Road Trip 等）
+model StoryLine {
+  id              String   @id @default(cuid())
+  characterId     String   // "mia", "alex" 等，关联 characters.json 的角色
+  title           String             // "School Life"
+  description     String   @default("") // 故事线简介
+  imageUrl        String?  // 故事线封面图
+  emoji           String   @default("") // "🎒"
+  themeColor      String   @default("") // "#FF9500"
+  difficulty      String   @default("elementary") // elementary | cet4 | cet6
+  sortOrder       Int      @default(0)
+  isActive        Boolean  @default(true)
+  unlockCondition String?  // 解锁条件 key，null = 默认解锁
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  chapters        StoryChapter[]
+  episodes        StoryEpisode[]
+
+  @@unique([characterId, title])
+  @@index([sortOrder])
+  @@map("story_lines")
+}
+
+// 章节（第一周的惊喜、秋天的灾难 等）
+model StoryChapter {
+  id              String   @id @default(cuid())
+  storyLineId     String
+  storyLine       StoryLine @relation(fields: [storyLineId], references: [id], onDelete: Cascade)
+
+  chapterNumber   Int               // 1, 2, 3...
+  title           String            // "First Week Surprises"
+  titleZh         String   @default("") // "第一周的惊喜"
+  description     String   @default("") // 章节简介
+  imageUrl        String   @default("") // 章节封面图
+  episodeFrom     Int               // 起始集号（含），如 1
+  episodeTo       Int               // 结束集号（含），如 10
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([storyLineId, chapterNumber])
+  @@index([storyLineId])
+  @@map("story_chapters")
+}
+
+// 剧集（mia_ep1、mia_ep2 等）
+model StoryEpisode {
+  id              String   @id @default(cuid())
+  storyLineId     String
+  storyLine       StoryLine @relation(fields: [storyLineId], references: [id], onDelete: Cascade)
+
+  episodeId       String   @unique  // "mia_ep1" — 业务唯一标识
+  episodeNumber   Int               // 1, 2, 3...
+  title           String            // "Wrong Room, Right Friend"
+  titleZh         String   @default("") // "走错教室，遇见对的你"
+  titleAudioUrl   String   @default("") // 标题预生成音频
+  imageUrl        String?  // 剧集封面图
+
+  // Episode 完整内容（剧本 + 学习点 + 题目，由编剧 Agent 生成）
+  learningPoints  Json?    // LearningPoint[]
+  script          Json?    // ScriptItem[]（narrator + dialogue + question 混合数组）
+  narratorClosing String?  // 结尾旁白
+  nextEpisodeHook String?  // 下集预告
+
+  isPublished     Boolean  @default(false) // true = 有完整 script 可进入练习
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([storyLineId, episodeNumber])
+  @@index([storyLineId])
+  @@map("story_episodes")
+}
+
+// 用户剧集进度（不建外键关系：StoryLine 用 soft delete，删除后进度记录保留）
+model UserStoryProgress {
+  id              String   @id @default(cuid())
+  userId          String
+  storyLineId     String   // 故事线 ID，对应 StoryLine.id
+  episodeId       String   // 剧集 ID，对应 StoryEpisode.episodeId，如 "mia_ep1"
+  status          String   @default("unlocked") // unlocked | in_progress | completed
+  stars           Int      @default(0)          // 星级 0-3
+  grade           String?  // S | A | B | C | D
+  answers         Json?    // AnswerRecord[]，答题记录
+  completedAt     DateTime?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, storyLineId, episodeId])
+  @@index([userId])
+  @@index([userId, storyLineId])
+  @@map("user_story_progress")
+}
+
+// ==================== 安妮老师的英语课（VOA Let's Learn English 改编） ====================
+
+// 单课内容（每课一行；script + key_expressions + learning_objectives 全 JSON 整块存）
+model AnnieLesson {
+  id              String   @id @default(cuid())
+  course          String   // "l1" | "l2"
+  lessonNumber    Int      // l1: 1-52, l2: 1-30
+
+  titleEn         String   // "Welcome!"
+  titleZh         String   @default("") // "欢迎"
+  summaryZh       String   @default("") // 一句话课程简介
+  imageUrl        String?  // 课程封面图（可选）
+
+  // 课程内容（导入脚本一次性写入；前端按 script 数组顺序渲染 7 关）
+  characterMapping     Json?   // [{voa_original, app_character_id, reason}]
+  learningObjectives   Json?   // [{id, english, chinese}]
+  keyExpressions       Json?   // [{id, english, chinese}]
+  script               Json?   // ScriptItem[] = (narration | dialogue | question)[]
+
+  // 来源元数据
+  voaArticleId    String?  // VOA 原文 article id
+  voaUrl          String?  // VOA 原文 URL
+
+  isPublished     Boolean  @default(true)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([course, lessonNumber])
+  @@index([course, lessonNumber])
+  @@map("annie_lessons")
+}
+
+// 用户单课进度（每关分别记录 — 跟读分 / 选择题对错 / 听力对错 / 口语题评分）
+model UserAnnieProgress {
+  id              String   @id @default(cuid())
+  userId          String
+  course          String   // "l1" | "l2"
+  lessonNumber    Int
+
+  // 各关卡数据，JSON 结构示例:
+  //   {
+  //     "stage3_pronunciation": [{ keId, score, attempts, lastTriedAt }],
+  //     "stage4_choice":        [{ index, correct, selectedOption }],
+  //     "stage5_listening":     [{ index, correct, selectedOption }],
+  //     "stage6_conversation":  [{ index, achieved, qualityScore, feedback }]
+  //   }
+  // 用 JSON 而非展开列：方便后续加新关卡 / 改判分维度而不改 schema。
+  stages          Json?
+
+  totalScore      Int      @default(0)  // 综合得分（用于课程列表卡片显示星级 / 进度）
+  attempts        Int      @default(0)  // 重学次数
+  completedAt     DateTime?              // null = 未完成
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, course, lessonNumber])
+  @@index([userId])
+  @@index([userId, course])
+  @@map("user_annie_progress")
+}
+
+// ==================== 名著精读模块 ====================
+
+// 名著精读书籍表（全文入库，Standard Ebooks / Gutenberg 源）
+model Book {
+  id            String   @id @default(cuid())
+  slug          String   @unique // "pride-and-prejudice"
+  title         String   // "Pride and Prejudice"
+  titleZh       String?  // "傲慢与偏见"
+  author        String   // "Jane Austen"
+  authorZh      String?  // "简·奥斯汀"
+
+  // 分级
+  level         String   // "beginner" | "intermediate" | "advanced"
+  lexile        Int?     // Lexile 数值
+  cefr          String?  // A2 | B1 | B2 | C1 | C2
+  readingEase   Float?   // Flesch reading ease
+
+  // 计量
+  wordCount     Int      @default(0) // 全书字数
+  chapterCount  Int      @default(0) // 章节数（正文）
+  estMinutes    Int      @default(0) // 预估阅读分钟
+
+  // 元数据
+  coverUrl      String?  // 封面 CDN URL
+  description   String?  @db.Text // 简介
+  publishedYear Int?     // 原著出版年份
+
+  // 来源
+  source        String   @default("standard_ebooks") // standard_ebooks | gutenberg | custom
+  sourceUrl     String?  // 原始页面链接
+
+  // 发布控制
+  isPublished   Boolean  @default(false)
+  sortOrder     Int      @default(0)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  chapters      BookChapter[]
+  userProgress  UserBookProgress[]
+
+  @@index([level, isPublished])
+  @@index([sortOrder])
+  @@map("books")
+}
+
+// 章节表
+model BookChapter {
+  id            String   @id @default(cuid())
+  bookId        String
+  book          Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  chapterNumber Int      // 1, 2, 3...
+  title         String   // "The Cyclone"
+  titleZh       String?  // "龙卷风"
+  ordinal       String?  // "I" / "II" / "One"（原书表记方式）
+  wordCount     Int      @default(0)
+  estMinutes    Int      @default(0)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  paragraphs    BookParagraph[]
+
+  @@unique([bookId, chapterNumber])
+  @@index([bookId])
+  @@map("book_chapters")
+}
+
+// 段落表（精读最小单元）
+model BookParagraph {
+  id            String   @id @default(cuid())
+  chapterId     String
+  chapter       BookChapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  paraIndex     Int      // 章内序号 0, 1, 2...
+  rawText       String   @db.Text // 英文原文
+  translationZh String?  @db.Text // 中文翻译（AI 预生成）
+
+  // 句级切分与对齐（由导入/翻译流程产生）
+  englishSentences     Json?       // 英文句子数组 string[]（切句权威来源，与 BookSentence.orderIndex 对齐）
+  sentenceTranslations Json?       // 逐句中文翻译 string[]（与 englishSentences 等长、一一对应）
+
+  createdAt     DateTime @default(now())
+
+  sentences     BookSentence[]
+
+  @@unique([chapterId, paraIndex])
+  @@index([chapterId])
+  @@map("book_paragraphs")
+}
+
+// 句级讲解表 — 每英文句一条独立讲解文本 + 独立讲解音频
+// 讲解文本由 scripts/classics/generate-explain.ts 按句循环预生成（DeepSeek）
+// 讲解音频首次用户触发时懒合成 → 上传 OSS → 回填 explainAudioUrl，后续全局共享
+model BookSentence {
+  id              String   @id @default(cuid())
+  paragraphId     String
+  paragraph       BookParagraph @relation(fields: [paragraphId], references: [id], onDelete: Cascade)
+
+  orderIndex      Int               // 与 BookParagraph.englishSentences 下标对齐 (0-based)
+  text            String   @db.Text // 英文原句
+  audioUrl        String?           // 原文朗读音频 OSS URL（首次触发时懒合成回填）
+  explainCn       String?  @db.Text // 该句中文讲解文本（脚本预生成）
+  explainAudioUrl String?           // 讲解音频 OSS URL（懒合成回填）
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([paragraphId, orderIndex])
+  @@index([paragraphId])
+  @@map("book_sentences")
+}
+
+// 用户阅读进度（头表：每本书一条，记最后一次打开的位置 + 累计时长）
+model UserBookProgress {
+  id               String   @id @default(cuid())
+  userId           String
+  bookId           String
+  book             Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  status           String   @default("reading") // reading | completed
+  // 最后打开的章/段 — 决定"继续阅读"按钮和 Hero 卡的跳转
+  lastChapter      Int      @default(1)
+  lastParaIndex    Int      @default(0)
+  // 派生值：已完成章节 / 总章节（每次 chapter 进度变动时重算）
+  progressPercent  Float    @default(0)
+  readSeconds      Int      @default(0)
+
+  startedAt        DateTime @default(now())
+  lastReadAt       DateTime @default(now())
+  completedAt      DateTime?
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([userId, bookId])
+  @@index([userId])
+  @@index([userId, lastReadAt])
+  @@map("user_book_progress")
+}
+
+// 词查义缓存：AI 对词库长尾词的释义，全局共享（无 userId）
+model WordLookupCache {
+  id           String   @id @default(cuid())
+  text         String   @unique // 小写归一化后的词（含变形）
+  lemma        String?  // 词根/原形（AI 识别），可能同 text
+  phonetic     String?
+  partOfSpeech String?
+  meaning      String   @db.Text // 核心释义（中文）
+  meanings     Json?    // [{pos, definition}] 完整义项
+  notes        String?  @db.Text // 变形说明等，如 "walked 是 walk 的过去式"
+
+  // TTS 音频 — 懒生成：首次有人点"发音"时合成，上传 OSS，全局共享
+  audioUrlUs   String?
+  audioUrlUk   String?
+
+  source       String   @default("ai") // ai | manual
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([lemma])
+  @@map("word_lookup_cache")
+}
+
+// 用户章节进度（每章一条，跳章不丢已读状态）
+model UserBookChapterProgress {
+  id            String   @id @default(cuid())
+  userId        String
+  bookId        String
+  chapterNumber Int
+
+  maxParaIndex      Int     @default(0) // 本章历史最深段（只增不减，用于已读百分比）
+  lastParaIndex     Int     @default(0) // 上次离开本章时的段（用于恢复阅读位置）
+  lastSentenceIndex Int     @default(0) // 上次离开本章时的句（段内句序号，用于句级精确恢复）
+  completed     Boolean  @default(false) // 本章是否读完
+  readSeconds   Int      @default(0) // 本章累计阅读秒数
+  lastReadAt    DateTime @default(now())
+  completedAt   DateTime?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId, bookId, chapterNumber])
+  @@index([userId, bookId])
+  @@map("user_book_chapter_progress")
+}
+
+// 订单表
+model UserOrder {
+  id              String    @id @default(cuid())
+  userId          String
+  orderNo         String    @unique // 订单号（对外展示）
+  planType        String    // 套餐类型快照：basic | pro | max
+  billingCycle    String    @default("monthly") // monthly | yearly
+  originalAmount  Decimal   // 套餐原价（¥）
+  amount          Decimal   // 实际支付金额（¥）
+  discountAmount  Decimal   @default(0) // 折扣/抵扣金额（¥）
+  discountReason  String?   // 折扣原因：upgrade_prorate | cycle_upgrade
+  periodStart     DateTime? // 该订单对应的订阅周期开始
+  periodEnd       DateTime? // 该订单对应的订阅周期结束
+  status          String    @default("pending") // pending | paid | cancelled | refunded | expired | credited
+  paymentMethod   String?   // 支付方式：alipay
+  paymentTradeNo  String?   // 第三方支付交易号
+  paidAt          DateTime? // 支付时间
+  expiredAt       DateTime  // 订单支付超时时间（30分钟）
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+  @@index([userId, status])
+  @@map("user_orders")
+}
+
+// ==================== 邀请系统模块 ====================
+
+// 邀请记录表
+model UserInvitation {
+  id            String   @id @default(cuid())
+  inviterId     String   // 邀请人 userId
+  inviteeId     String   @unique // 被邀请人 userId（一个用户只能被邀请一次）
+  inviteCode    String   // 使用的邀请码
+  rewardGranted Boolean  @default(false) // 是否已发放奖励
+  createdAt     DateTime @default(now())
+
+  @@index([inviterId])
+  @@map("user_invitations")
+}
+
+// ==================== 成就系统模块 ====================
+
+// 用户统计计数器表（避免每次 COUNT(*)）
+model UserStats {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  totalLearned       Int      @default(0)
+  totalMastered      Int      @default(0)
+  totalReviewed      Int      @default(0)
+  totalConversations Int      @default(0)
+  totalListening     Int      @default(0)
+  totalReading       Int      @default(0)
+  totalDiaries       Int      @default(0)
+  totalLevels          Int      @default(0)
+  totalBossKills       Int      @default(0)
+  totalPerfectStars    Int      @default(0)
+  totalSentences       Int      @default(0)
+  totalDailyChallenges Int      @default(0)
+  totalSpeedReviews    Int      @default(0)
+  totalRootsLit        Int      @default(0)
+  totalEncounters      Int      @default(0)
+  totalDailyTaskDays   Int      @default(0)  // 每日任务全部完成的天数
+  totalPhonemePractices Int    @default(0)
+  streakDays         Int      @default(0)
+  maxStreakDays      Int      @default(0)
+  lastActiveDate     String?
+  dailyXpEarned      Int      @default(0)
+  dailyXpDate        String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  @@map("user_stats")
+}
+
+// 成就定义表（替代硬编码 ACHIEVEMENTS 数组）
+model AchievementDefinition {
+  id             String   @id @default(cuid())
+  code           String   @unique          // 唯一标识: 'first_word', 'words_50'...
+  seriesCode     String?                   // 阶梯系列: 'words_series', 'streak_series'
+  tier           Int      @default(1)      // 阶梯等级: 1,2,3,4...
+  nameZh         String
+  nameEn         String
+  descriptionZh  String
+  descriptionEn  String
+  icon           String
+  category       String                    // learning | streak | practice | milestone
+  xpReward       Int      @default(0)
+  ruleType       String   @default("stat") // stat | level
+  conditions     Json?                     // ConditionNode JSON（向后兼容旧格式 [{stat,op,value}]）
+  triggerEvents  Json?                     // ['word_learned', ...]
+  levelCondition Int?                      // 等级成就的等级阈值
+  isHidden       Boolean  @default(false)  // 隐藏成就
+  rarity         String?                   // common | rare | epic | legendary
+  rarityPercent  Float?                    // X% 用户已解锁
+  sortOrder      Int      @default(0)
+  isActive       Boolean  @default(true)
+  // 赛季/限时支持
+  seasonCode     String?                   // 关联 Season.code（null=永久成就）
+  availableFrom  DateTime?                 // 限时成就开始时间
+  availableUntil DateTime?                 // 限时成就结束时间
+  isLimited      Boolean  @default(false)  // 是否限时
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  @@index([category])
+  @@index([seriesCode, tier])
+  @@index([seasonCode])
+  @@map("achievement_definitions")
+}
+
+// 成就通知表（通知持久化）
+model AchievementNotification {
+  id             String   @id @default(cuid())
+  userId         String
+  achievementId  String
+  type           String   @default("unlock") // unlock | tier_up
+  payload        Json                        // 快照：name, icon, xpReward 等
+  isRead         Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  @@index([userId, isRead])
+  @@map("user_achievement_notifications")
+}
+
+// 用户成就记录表
+model UserAchievement {
+  id             String   @id @default(cuid())
+  userId         String
+  achievementId  String   // 成就标识（如 first_word, streak_7）
+  unlockedAt     DateTime @default(now())
+
+  @@unique([userId, achievementId])
+  @@index([userId])
+  @@map("user_achievements")
+}
+
+// 用户经验值与等级表
+model UserLevel {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  level      Int      @default(1)
+  xp         Int      @default(0)  // 当前总经验值
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("user_levels")
+}
+
+// ==================== 听力训练模块 ====================
+
+// 听力材料表
+model ListeningMaterial {
+  id          String   @id @default(cuid())
+  title       String
+  titleZh     String?
+  sentences   Json     // [{en: "...", zh: "..."}] 逐句数据
+  questions   Json?    // [{question: "...", options: [...], answer: 0}] 理解题
+  level       String   @default("intermediate") // beginner | intermediate | advanced
+  category    String   @default("general")
+  totalWords  Int      @default(0)
+  duration    Int      @default(0) // 预估时长（秒）
+  isPublished Boolean  @default(true)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([level])
+  @@index([category])
+  @@map("listening_materials")
+}
+
+// 用户听力进度表
+model UserListeningProgress {
+  id              String    @id @default(cuid())
+  userId          String
+  materialId      String
+  mode            String    @default("dictation") // dictation | comprehension
+  dictationScore  Int?      // 听写正确率 0-100
+  quizScore       Int?      // 理解题正确率 0-100
+  listenCount     Int       @default(0) // 收听次数
+  completedAt     DateTime?
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([userId, materialId, mode])
+  @@index([userId])
+  @@index([materialId])
+  @@map("user_listening_progress")
+}
+
+// ==================== 考试专题模块 ====================
+
+// 用户考试记录表
+model UserExamRecord {
+  id             String   @id @default(cuid())
+  userId         String
+  examTypeId     String   // cet4 | cet6 | kaoyan | ielts | toefl | tem4 | tem8
+  score          Int      // 得分（百分制）
+  totalQuestions Int      // 总题数
+  correctCount   Int      // 答对数
+  duration       Int      // 用时（秒）
+  answers        Json?    // 答题记录 { questionId: selectedOption }
+
+  createdAt      DateTime @default(now())
+
+  @@index([userId])
+  @@index([userId, examTypeId])
+  @@map("user_exam_records")
+}
+
+// ==================== 学习社区模块 ====================
+
+// 社区帖子表
+model UserCommunityPost {
+  id         String   @id @default(cuid())
+  userId     String
+  type       String   @default("share") // share(分享) | question(提问) | note(笔记)
+  content    String   @db.Text // 正文内容
+  images     Json?    // 图片URL数组
+  tags       Json?    // 标签数组 ["四级", "词汇"]
+  likeCount  Int      @default(0)
+  commentCount Int    @default(0)
+  isDeleted  Boolean  @default(false)
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("user_community_posts")
+}
+
+// 帖子评论表
+model UserPostComment {
+  id         String   @id @default(cuid())
+  postId     String
+  userId     String
+  content    String
+  parentId   String?  // 回复某条评论时的父评论ID
+  isDeleted  Boolean  @default(false)
+
+  createdAt  DateTime @default(now())
+
+  @@index([postId])
+  @@index([userId])
+  @@map("user_post_comments")
+}
+
+// 帖子点赞表
+model UserPostLike {
+  id         String   @id @default(cuid())
+  postId     String
+  userId     String
+
+  createdAt  DateTime @default(now())
+
+  @@unique([postId, userId])
+  @@index([postId])
+  @@map("user_post_likes")
+}
+
+// ==================== AI 学习助手模块 ====================
+
+// 助手记忆表 - 存储用户画像快照，作为 AI system prompt 数据源
+model AssistantMemory {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  userProfile    Json     // {nickname, gender, birthday, bio, level, xp}
+  learningStats  Json     // {totalLearned, totalMastered, streakDays, ...}
+  recentProgress Json     // {last7DaysLearned, weakWords, todayLearned, ...}
+  preferences    Json     // {studyGoals, topics, ...}
+  aiInsights     Json?    // AI 提取的用户洞察
+  lastSnapshotAt DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("user_assistant_memories")
+}
+
+// 助手消息表 - 服务端持久化对话历史
+model AssistantMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  role      String   // 'user' | 'assistant'
+  content   String   @db.Text
+  metadata  Json?    // {quickAction?, pushSource?, voiceUri?}
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@map("user_assistant_messages")
+}
+
+// 系统通知表 - 记录推送通知，防重复 + 效果分析
+model UserNotification {
+  id          String    @id @default(cuid())
+  userId      String
+  type        String    // 通知类型: daily_remind, birthday, weekly_summary...
+  channel     String    // 'in_app' | 'notification'
+  content     String    // 通知内容
+  triggerData Json?     // 触发数据快照
+  isRead      Boolean   @default(false)
+  readAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId, createdAt])
+  @@index([userId, isRead])
+  @@index([userId, type, createdAt])
+  @@map("user_notifications")
+}
+
+// ==================== 用户反馈模块 ====================
+
+// 用户反馈表
+model UserFeedback {
+  id        String   @id @default(cuid())
+  userId    String   // 用户ID
+  type      String   // 反馈类型：bug(问题反馈) / feature(功能建议) / other(其他)
+  content   String   @db.Text // 反馈内容
+  images    Json?    // 图片URL数组，最多5张 ["https://...", "https://..."]
+  status    String   @default("pending") // 状态：pending(待处理) / processing(处理中) / resolved(已解决) / closed(已关闭)
+
+  // 用户设备信息（可选）
+  deviceInfo String? // 设备信息 JSON，包含系统版本、App版本等
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([type])
+  @@map("user_feedbacks")
+}
+
+// ==================== 每日挑战赛 ====================
+
+model DailyChallenge {
+  id            String   @id @default(cuid())
+  date          String   @unique  // YYYY-MM-DD
+  questions     Json               // [{wordId, word, meaningCn, type, options, correctIndex}]
+  totalQuestions Int      @default(20)
+  timeLimit     Int      @default(300) // 秒
+  createdAt     DateTime @default(now())
+
+  @@map("daily_challenges")
+}
+
+model DailyChallengeResult {
+  id            String   @id @default(cuid())
+  userId        String
+  date          String
+  score         Int
+  correctCount  Int
+  totalQuestions Int
+  maxCombo      Int      @default(0)
+  duration      Int               // 实际用时（秒）
+  createdAt     DateTime @default(now())
+
+  @@unique([userId, date])
+  @@index([date, score])
+  @@index([userId])
+  @@map("user_daily_challenge_results")
+}
+
+// ==================== 成就系统增强 ====================
+
+// 成就事件日志表（支撑时间窗口/连续天数条件查询）
+model AchievementEventLog {
+  id         String   @id @default(cuid())
+  userId     String
+  eventType  String
+  metadata   Json?                  // 事件上下文数据
+  eventDate  String                 // YYYY-MM-DD (Asia/Shanghai)
+  createdAt  DateTime @default(now())
+
+  @@index([userId, eventType, createdAt])
+  @@index([userId, eventDate])
+  @@map("user_achievement_event_logs")
+}
+
+// 赛季定义表
+model Season {
+  id          String   @id @default(cuid())
+  code        String   @unique       // 'S1_2026Q1', 'S2_2026Q2'
+  nameZh      String
+  nameEn      String
+  startDate   DateTime
+  endDate     DateTime
+  isActive    Boolean  @default(false)
+  theme       String?                // 赛季主题
+  rewards     Json?                  // 赛季结算奖励配置
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([startDate, endDate])
+  @@map("seasons")
+}
+
+// ==================== 每日/每周任务系统 ====================
+
+// 任务模板定义表（运营配置）
+model TaskTemplate {
+  id            String   @id @default(cuid())
+  code          String   @unique     // 'learn_10_words', 'review_20_words'
+  type          String               // 'daily' | 'weekly'
+  nameZh        String
+  nameEn        String
+  descriptionZh String
+  descriptionEn String
+  icon          String
+  condition     Json                 // 任务条件 JSON
+  xpReward      Int      @default(10)
+  weight        Int      @default(100) // 随机选取权重
+  minLevel      Int      @default(1)   // 最低等级要求
+  maxLevel      Int      @default(30)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([type, isActive])
+  @@map("task_templates")
+}
+
+// 用户每日任务实例表
+model UserDailyTask {
+  id            String    @id @default(cuid())
+  userId        String
+  templateCode  String               // 关联 TaskTemplate.code
+  taskDate      String               // YYYY-MM-DD
+  type          String               // 'daily' | 'weekly'
+  nameZh        String               // 快照
+  nameEn        String
+  icon          String
+  targetValue   Int                  // 目标值
+  xpReward      Int
+  currentValue  Int       @default(0)
+  isCompleted   Boolean   @default(false)
+  completedAt   DateTime?
+  isClaimed     Boolean   @default(false)
+  claimedAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([userId, templateCode, taskDate])
+  @@index([userId, taskDate])
+  @@index([userId, type, taskDate])
+  @@map("user_daily_tasks")
+}
+
+// 每日任务全部完成奖励表
+model UserDailyTaskBonus {
+  id         String   @id @default(cuid())
+  userId     String
+  taskDate   String               // YYYY-MM-DD
+  xpAwarded  Int
+  claimedAt  DateTime @default(now())
+
+  @@unique([userId, taskDate])
+  @@map("user_daily_task_bonus")
+}
+
+// ==================== 社交展示系统 ====================
+
+// 徽章展柜（用户精选展示）
+model UserBadgeShowcase {
+  id            String   @id @default(cuid())
+  userId        String
+  achievementId String               // 成就 code
+  slotIndex     Int                  // 展位序号 0-4
+
+  createdAt     DateTime @default(now())
+
+  @@unique([userId, slotIndex])
+  @@unique([userId, achievementId])
+  @@index([userId])
+  @@map("user_badge_showcases")
+}
+
+// 成就分享记录
+model AchievementShare {
+  id            String   @id @default(cuid())
+  userId        String
+  achievementId String
+  shareType     String               // 'image' | 'link'
+  shareUrl      String?
+  viewCount     Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  @@index([userId])
+  @@map("user_achievement_shares")
+}
+
+// ==================== 语法学习模块 ====================
+
+// 语法学习单元表（Duolingo 风格等级-单元制，5 个等级 × 18 个单元）
+model GrammarCategory {
+  id          String   @id @default(cuid())
+  code        String   @unique              // 'nouns', 'talking_about_time', ...
+  nameZh      String                        // 中文名称
+  nameEn      String                        // 英文名称
+  icon        String                        // 图标名称
+  color       String   @default("#7C5CFC")  // 单元颜色
+  description String?                       // 单元描述
+  level       Int      @default(1)          // 所属等级 1-5
+  sortOrder   Int      @default(0)          // 等级内排序
+
+  points      GrammarPoint[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([level])
+  @@map("grammar_categories")
+}
+
+// 语法点表（约80个）
+model GrammarPoint {
+  id            String   @id @default(cuid())
+  categoryId    String
+  category      GrammarCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  code          String   @unique             // 'simple_present', 'past_continuous', ...
+  nameZh        String                       // "一般现在时"
+  nameEn        String                       // "Simple Present Tense"
+  difficulty    String   @default("basic")   // 'basic' | 'intermediate' | 'advanced'
+  sortOrder     Int      @default(0)
+
+  // AI 生成的讲解内容（缓存）
+  explanation   String?  @db.Text            // AI 生成的 Markdown 讲解
+  examples      Json?                        // [{en: "...", zh: "...", highlight: "..."}]
+  explanationGeneratedAt DateTime?           // 讲解生成时间
+
+  practices     GrammarPractice[]
+  userProgress  UserGrammarProgress[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([categoryId])
+  @@index([difficulty])
+  @@map("grammar_points")
+}
+
+// 语法练习题表（AI 生成后缓存）
+// type: 'choice' | 'fill_blank' | 'error_judgment' | 'error_correction' | 'dual_blank' | 'sentence_reorder' | 'word_assembly' | 'table_fill'
+// cognitiveLevel: 'recognition'(识别) | 'understanding'(理解) | 'production'(产出)
+model GrammarPractice {
+  id            String   @id @default(cuid())
+  pointId       String
+  point         GrammarPoint @relation(fields: [pointId], references: [id], onDelete: Cascade)
+
+  type          String                       // 题型
+  cognitiveLevel String  @default("recognition") // 认知层级
+  question      String                       // 题干
+  options       Json?                        // 选项数组
+  answer        String                       // 正确答案
+  explanation   String?                      // 解析
+  difficulty    String   @default("basic")   // 与语法点难度一致
+
+  // 新题型扩展字段
+  smartTip      Json?                        // Smart Tip: { rule, wrong, correct, examples }
+  errorPart     String?                      // 纠错题：错误部分文本
+  correctVersion String?                     // 纠错题：完整正确句子
+  sentence1     String?                      // 双空对比题：句子1
+  sentence2     String?                      // 双空对比题：句子2
+  answer2       String?                      // 双空对比题：句子2的答案
+  tableData     Json?                        // 填表题：表格数据 { headers, rows, blanks }
+  words         Json?                        // 重组/选词组句：单词列表
+  distractors   Json?                        // 选词组句：干扰词列表
+  chineseTranslation String?                 // 重组/选词组句：中文翻译
+  structureHint String?                      // 重组题：结构提示
+  acceptableAnswers Json?                    // 可接受的多个答案
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([pointId])
+  @@index([pointId, type])
+  @@index([pointId, cognitiveLevel])
+  @@map("grammar_practices")
+}
+
+// 用户语法学习进度表
+model UserGrammarProgress {
+  id              String    @id @default(cuid())
+  userId          String
+  pointId         String
+  point           GrammarPoint @relation(fields: [pointId], references: [id], onDelete: Cascade)
+
+  status          String    @default("not_started")   // 'not_started' | 'learning' | 'practiced' | 'mastered'
+  readAt          DateTime?                            // 阅读讲解的时间
+  practiceScore   Int?                                 // 最近一次练习得分 (0-100)
+  practiceCount   Int       @default(0)                // 练习次数
+  bestScore       Int?                                 // 历史最高分
+  starRating      Int?                                 // 最近一次星级 (1-5)
+  bestStarRating  Int?                                 // 历史最高星级 (1-5)
+  lastPracticedAt DateTime?
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([userId, pointId])
+  @@index([userId])
+  @@index([userId, status])
+  @@map("user_grammar_progress")
+}
+
+// 用户音素练习进度表
+model UserPhonemeProgress {
+  id                 String    @id @default(cuid())
+  userId             String
+  phonemeSymbol      String    // IPA 音素符号，如 /ɪ/
+  practiceCount      Int       @default(0)
+  totalWordCount     Int       @default(0)
+  avgScore           Float     @default(0)
+  bestScore          Float     @default(0)
+  lastScore          Float     @default(0)
+  masteryLevel       String    @default("none") // none|beginner|intermediate|advanced|mastered
+  listenCorrectCount Int       @default(0)
+  listenTotalCount   Int       @default(0)
+  lastPracticedAt    DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@unique([userId, phonemeSymbol])
+  @@index([userId])
+  @@index([userId, updatedAt])
+  @@map("user_phoneme_progress")
+}
+
+// 用户关注关系表（单向关注）
+model UserFollow {
+  id          String   @id @default(cuid())
+  followerId  String   // 关注者（主动方）
+  followingId String   // 被关注者（被动方）
+  createdAt   DateTime @default(now())
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+  @@map("user_follows")
+}
+
+// ==================== AI 伙伴对话模块 ====================
+
+// Mem0 伙伴对话消息记录 — 服务端日志，前端不读取
+model CompanionMem0Message {
+  id          String   @id @default(cuid())
+  userId      String
+  characterId String   // "mia", "alex" 等
+  sessionId   String   // 会话标识，同一次对话共享
+  role        String   // "user" | "assistant"
+  content     String   @db.Text
+  createdAt   DateTime @default(now())
+
+  @@index([userId, characterId, createdAt])
+  @@index([sessionId])
+  @@map("user_companion_mem0_messages")
+}
+

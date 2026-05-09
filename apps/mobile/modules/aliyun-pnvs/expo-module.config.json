@@ -1,0 +1,9 @@
+{
+  "platforms": ["ios", "android"],
+  "ios": {
+    "modules": ["AliyunPNVSModule"]
+  },
+  "android": {
+    "modules": ["cn.coderhythm.aliyunpnvs.AliyunPNVSModule"]
+  }
+}

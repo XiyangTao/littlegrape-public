@@ -1,0 +1,59 @@
+{
+  "name": "littlegrape",
+  "private": true,
+  "description": "AI-powered English learning app with microservices architecture featuring Agno AI agents and multi-engine TTS",
+  "workspaces": [
+    "packages/database",
+    "packages/date-utils",
+    "packages/shared",
+    "services/api-gateway",
+    "services/speech-service",
+    "apps/web"
+  ],
+  "scripts": {
+    "mobile:dev": "cd apps/mobile && npm start",
+    "mobile:ios": "cd apps/mobile && npm run ios",
+    "mobile:android": "cd apps/mobile && npm run android",
+    "mobile:build": "cd apps/mobile && npm run build",
+    "gateway:dev": "yarn workspace api-gateway dev",
+    "gateway:build": "yarn workspace api-gateway build",
+    "gateway:start": "yarn workspace api-gateway start",
+    "speech:dev": "yarn workspace speech-service dev",
+    "speech:build": "yarn workspace speech-service build",
+    "speech:start": "yarn workspace speech-service start",
+    "db:generate": "yarn workspace @littlegrape/database db:generate",
+    "db:migrate:dev": "yarn workspace @littlegrape/database db:migrate:dev",
+    "db:migrate:deploy": "yarn workspace @littlegrape/database db:migrate:deploy",
+    "db:studio": "yarn workspace @littlegrape/database db:studio",
+    "ai:dev": "cd services/ai-service && PYTHONPATH=src python src/main.py",
+    "ai:start": "cd services/ai-service && PYTHONPATH=src python src/main.py",
+    "web:dev": "cd apps/web && npm run dev",
+    "web:build": "cd apps/web && npm run build",
+    "web:start": "cd apps/web && npm run start",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:dev": "docker-compose --profile dev up -d",
+    "docker:logs": "docker-compose logs -f",
+    "docker:build": "docker-compose build",
+    "docker:restart": "docker-compose restart",
+    "docker:clean": "docker-compose down -v && docker system prune -f",
+    "dev:infrastructure": "docker-compose up postgres redis -d",
+    "lint": "yarn workspaces foreach -p run lint",
+    "test": "yarn workspaces foreach -p run test",
+    "typecheck": "yarn workspaces foreach -p run typecheck"
+  },
+  "packageManager": "yarn@4.6.0",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "resolutions": {
+    "express": "5.1.0",
+    "@types/express": "5.0.3",
+    "compression": "1.8.1",
+    "@types/compression": "1.8.1",
+    "multer": "2.0.2"
+  },
+  "dependencies": {
+    "@uiw/react-native-alipay": "^5.0.2"
+  }
+}

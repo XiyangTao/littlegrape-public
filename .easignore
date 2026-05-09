@@ -1,0 +1,51 @@
+# 忽略其他workspace（保留mobile相关）
+packages/
+/services/
+apps/web/
+/scripts/
+/logs/
+/docs/
+
+# 忽略原生目录，让 EAS 云端 prebuild
+apps/mobile/android/
+apps/mobile/ios/
+
+# 忽略开发和构建文件
+.claude/
+docker-compose*.yml
+PROGRESS.md
+.git/
+node_modules/
+dist/
+build/
+
+# 忽略IDE和临时文件
+.venv/
+.vscode/
+.idea/
+*.log
+.DS_Store
+
+# 忽略环境配置（仅根目录，保留 apps/mobile/.env）
+/.env
+/.env.local
+/.env.development
+/.env.production
+
+# 忽略大型数据目录（仅根目录）
+/data/
+
+# 忽略音频文件
+*.wav
+*.mp3
+*.m4a
+*.ogg
+*.webm
+*.aac
+*.flac
+
+# 忽略 Python 虚拟环境和缓存
+__pycache__/
+*.py[cod]
+*.pkl
+*.joblib

@@ -1,0 +1,53 @@
+# Node modules (每个服务会在 Docker 内安装)
+**/node_modules
+
+# 移动端应用 (不需要在 Docker 构建)
+apps/mobile
+
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# 日志
+logs
+*.log
+
+# 环境配置
+.env
+.env.*
+!.env.example
+
+# 构建产物
+**/dist
+**/build
+**/.next
+
+# 测试
+**/__tests__
+**/*.test.ts
+**/*.spec.ts
+coverage
+
+# Python 虚拟环境
+.venv
+__pycache__
+*.pyc
+
+# 文档
+docs
+*.md
+!README.md
+
+# 脚本目录
+scripts
+
+# 临时文件
+*.tmp
+*.temp
+.DS_Store

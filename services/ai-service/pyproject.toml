@@ -1,0 +1,112 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "littlegrape-ai-service"
+version = "1.0.0"
+description = "AI-powered English learning service with Agno framework"
+license = "MIT"
+authors = [
+    {name = "LittleGrape Team"}
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Education",
+    "Programming Language :: Python :: 3.12",
+]
+requires-python = ">=3.12"
+
+# 生产依赖
+dependencies = [
+    # Core AI Framework and Models
+    "agno==2.2.0",
+    "openai==2.6.0",
+    "anthropic==0.71.0",
+
+    # Web Framework
+    "fastapi==0.115.4",
+    "uvicorn[standard]==0.32.0",
+
+    # Data Validation and Settings
+    "pydantic==2.10.2",
+    "pydantic-settings==2.6.1",
+
+    # Database and Storage
+    "sqlalchemy>=2.0.0",  # agno 依赖但未正确声明
+    "psycopg[binary,pool]==3.2.11",
+    "psycopg2-binary==2.9.11",
+
+    # Memory Layer
+    "mem0ai==1.0.11",
+
+    # Configuration and Environment
+    "python-dotenv==1.0.1",
+]
+
+# 可选依赖组
+[project.optional-dependencies]
+dev = [
+    # Development and Testing Tools
+    "pytest==8.3.3",
+    "pytest-asyncio==0.24.0",
+
+    # HTTP Client (for testing)
+    "requests>=2.31.0",
+]
+
+test = [
+    "pytest==8.3.3",
+    "pytest-asyncio==0.24.0",
+    "requests>=2.31.0",
+]
+
+all = [
+    "pytest==8.3.3",
+    "pytest-asyncio==0.24.0",
+    "requests>=2.31.0",
+]
+
+
+# 包查找配置
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+# pytest 配置
+[tool.pytest.ini_options]
+testpaths = ["test"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--tb=short",
+    "--strict-markers",
+    "--disable-warnings",
+]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+# 其他工具配置可以在这里添加
+[tool.black]
+line-length = 88
+target-version = ['py311']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88

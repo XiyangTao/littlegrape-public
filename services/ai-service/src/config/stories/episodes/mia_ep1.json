@@ -1,0 +1,310 @@
+{
+  "episode_id": "mia_ep1",
+  "title": "Wrong Room, Right Friend",
+  "title_zh": "走错教室，遇见对的你",
+  "learning_points": [
+    {
+      "id": "lp_1",
+      "category": "expression",
+      "english": "I'm [name], I'm from [place]",
+      "chinese": "自我介绍句型"
+    },
+    {
+      "id": "lp_2",
+      "category": "expression",
+      "english": "I'm looking for ...",
+      "chinese": "我在找……（问路）"
+    },
+    {
+      "id": "lp_3",
+      "category": "vocabulary",
+      "english": "exchange student",
+      "chinese": "交换生"
+    },
+    {
+      "id": "lp_4",
+      "category": "slang",
+      "english": "My bad",
+      "chinese": "我的错（非正式道歉）"
+    },
+    {
+      "id": "lp_5",
+      "category": "expression",
+      "english": "Sorry, I ...",
+      "chinese": "道歉 + 解释"
+    },
+    {
+      "id": "lp_6",
+      "category": "vocabulary",
+      "english": "locker",
+      "chinese": "储物柜"
+    },
+    {
+      "id": "lp_7",
+      "category": "slang",
+      "english": "Stick with me",
+      "chinese": "跟着我就对了"
+    },
+    {
+      "id": "lp_8",
+      "category": "vocabulary",
+      "english": "cafeteria",
+      "chinese": "食堂"
+    }
+  ],
+  "script": [
+    {
+      "type": "narrator",
+      "text": "You rush into a classroom. Everyone stares."
+    },
+    {
+      "type": "dialogue",
+      "character": "oliver",
+      "line": "Excuse me. Who are you?"
+    },
+    {
+      "type": "question",
+      "question_type": "conversation",
+      "goal": "Apologize for being late",
+      "goal_description": "User should say they are sorry for being late",
+      "hint": "Try saying: Sorry, I'm late.",
+      "expected_answer": "Sorry, I'm late.",
+      "learning_point_ids": [
+        "lp_5"
+      ]
+    },
+    {
+      "type": "dialogue",
+      "character": "oliver",
+      "line": "I wasn't informed about a new student."
+    },
+    {
+      "type": "question",
+      "question_type": "conversation",
+      "goal": "Say you are looking for Room 204",
+      "goal_description": "User should use the phrase 'I'm looking for'",
+      "hint": "Try saying: I'm looking for Room 204.",
+      "expected_answer": "I'm looking for Room 204.",
+      "learning_point_ids": [
+        "lp_2"
+      ]
+    },
+    {
+      "type": "dialogue",
+      "character": "oliver",
+      "line": "This is Room 106, History class at Springfield High."
+    },
+    {
+      "type": "question",
+      "question_type": "conversation",
+      "goal": "Explain that you are an exchange student",
+      "goal_description": "User should mention being an exchange student",
+      "hint": "Try saying: I'm sorry, I'm the new exchange student.",
+      "expected_answer": "I'm sorry, I'm the new exchange student.",
+      "learning_point_ids": [
+        "lp_3",
+        "lp_5"
+      ]
+    },
+    {
+      "type": "narrator",
+      "text": "A friendly girl suddenly stands up."
+    },
+    {
+      "type": "dialogue",
+      "character": "mia",
+      "line": "Oh no! My bad, Mr. Oliver."
+    },
+    {
+      "type": "dialogue",
+      "character": "mia",
+      "line": "I was supposed to meet them. I forgot."
+    },
+    {
+      "type": "dialogue",
+      "character": "oliver",
+      "line": "Mia, this is very irresponsible."
+    },
+    {
+      "type": "dialogue",
+      "character": "mia",
+      "line": "I know. I'm really sorry."
+    },
+    {
+      "type": "dialogue",
+      "character": "mia",
+      "line": "Stick with me after class. I'll help."
+    },
+    {
+      "type": "question",
+      "question_type": "listening",
+      "audio_line": "Stick with me after class. I'll help.",
+      "audio_character": "mia",
+      "prompt": "What does Mia want to do?",
+      "options": [
+        {
+          "text": "Help you after class",
+          "correct": true
+        },
+        {
+          "text": "Send you back to class",
+          "correct": false
+        },
+        {
+          "text": "Ask you to leave",
+          "correct": false
+        }
+      ],
+      "learning_point_ids": [
+        "lp_7"
+      ]
+    },
+    {
+      "type": "dialogue",
+      "character": "oliver",
+      "line": "Very well. Please sit down, both of you."
+    },
+    {
+      "type": "narrator",
+      "text": "Class ends. You walk into the hallway with Mia."
+    },
+    {
+      "type": "dialogue",
+      "character": "mia",
+      "line": "Hi! I'm Mia. I'm from here, obviously."
+    },
+    {
+      "type": "question",
+      "question_type": "conversation",
+      "goal": "Introduce yourself and say where you are from",
+      "goal_description": "User should say their name and country",
+      "hint": "Try saying: I'm [Your Name], I'm from China.",
+      "expected_answer": "I'm from China. Nice to meet you.",
+      "learning_point_ids": [
+        "lp_1"
+      ]
+    },
+    {
+      "type": "dialogue",
+      "character": "mia",
+      "line": "Let's find your locker first."
+    },
+    {
+      "type": "question",
+      "question_type": "pronunciation",
+      "sentence": "I'm looking for Room 204.",
+      "learning_point_ids": [
+        "lp_2"
+      ]
+    },
+    {
+      "type": "narrator",
+      "text": "You arrive at the locker area. Mia checks a paper."
+    },
+    {
+      "type": "dialogue",
+      "character": "mia",
+      "line": "Your locker number is... 246."
+    },
+    {
+      "type": "dialogue",
+      "character": "mia",
+      "line": "Wait. That's my locker number."
+    },
+    {
+      "type": "question",
+      "question_type": "conversation",
+      "goal": "React to Mia's mistake about the locker number",
+      "goal_description": "User should express surprise or ask about sharing a locker",
+      "hint": "Try saying: We share a locker?",
+      "expected_answer": "We share a locker?",
+      "learning_point_ids": ["lp_6"]
+    },
+    {
+      "type": "dialogue",
+      "character": "mia",
+      "line": "No, that's impossible."
+    },
+    {
+      "type": "narrator",
+      "text": "Mia opens her locker. It's completely empty."
+    },
+    {
+      "type": "dialogue",
+      "character": "mia",
+      "line": "Oh. My bad again."
+    },
+    {
+      "type": "dialogue",
+      "character": "mia",
+      "line": "I cleaned it out yesterday. I forgot."
+    },
+    {
+      "type": "question",
+      "question_type": "choice",
+      "prompt": "What does Mia mean by 'My bad'?",
+      "options": [
+        {
+          "text": "I'm a bad person",
+          "correct": false
+        },
+        {
+          "text": "It's my fault",
+          "correct": true
+        },
+        {
+          "text": "That's too bad",
+          "correct": false
+        }
+      ],
+      "explanation": "'My bad' is casual English for 'It's my fault'. Used for informal apologies.",
+      "learning_point_ids": [
+        "lp_4"
+      ]
+    },
+    {
+      "type": "dialogue",
+      "character": "mia",
+      "line": "This is your locker now. Welcome!"
+    },
+    {
+      "type": "question",
+      "question_type": "conversation",
+      "goal": "Thank Mia for helping you",
+      "goal_description": "User should express gratitude to Mia",
+      "hint": "Try saying: Thank you, Mia.",
+      "expected_answer": "Thank you, Mia.",
+      "learning_point_ids": []
+    },
+    {
+      "type": "dialogue",
+      "character": "mia",
+      "line": "Are you hungry? Let's go to the cafeteria."
+    },
+    {
+      "type": "question",
+      "question_type": "choice",
+      "prompt": "What is a 'cafeteria'?",
+      "options": [
+        {
+          "text": "A place to buy and eat food at school",
+          "correct": true
+        },
+        {
+          "text": "A classroom for cooking lessons",
+          "correct": false
+        },
+        {
+          "text": "A library",
+          "correct": false
+        }
+      ],
+      "explanation": "A cafeteria is a place in a school where students can buy and eat meals.",
+      "learning_point_ids": [
+        "lp_8"
+      ]
+    }
+  ],
+  "narrator_closing": "You walk toward the cafeteria with your new friend.",
+  "next_episode_hook": "The cafeteria line is very, very long."
+}

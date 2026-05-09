@@ -1,0 +1,80 @@
+# LittleGrape Docker Compose 配置
+# 数据库和 Redis 使用阿里云 RDS，不再本地部署
+
+services:
+  # =================
+  # 应用服务
+  # =================
+
+  # API网关服务
+  api-gateway:
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+    container_name: littlegrape-api-gateway
+    restart: unless-stopped
+    ports:
+      - "${API_GATEWAY_PORT:-3000}:3000"
+    env_file:
+      - .env
+    environment:
+      TZ: Asia/Shanghai
+      AI_SERVICE_URL: http://ai-service:3001
+      SPEECH_SERVICE_URL: http://speech-service:3003
+    volumes:
+      - ./logs/api-gateway:/workspace/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # AI服务
+  ai-service:
+    build:
+      context: .
+      dockerfile: services/ai-service/Dockerfile
+    container_name: littlegrape-ai
+    restart: unless-stopped
+    ports:
+      - "${AI_SERVICE_PORT:-3001}:3001"
+    env_file:
+      - .env
+    environment:
+      TZ: Asia/Shanghai
+    volumes:
+      - ./logs/ai-service:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Speech服务 (TTS + ASR + 发音评估)
+  speech-service:
+    build:
+      context: .
+      dockerfile: services/speech-service/Dockerfile
+    container_name: littlegrape-speech
+    restart: unless-stopped
+    ports:
+      - "${SPEECH_SERVICE_PORT:-3003}:3003"
+    env_file:
+      - .env
+    environment:
+      TZ: Asia/Shanghai
+    volumes:
+      - ./logs/speech-service:/workspace/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+# =================
+# 网络
+# =================
+networks:
+  default:
+    name: littlegrape-network
+    driver: bridge

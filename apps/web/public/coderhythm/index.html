@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CodeRhythm 码韵科技 — 用 AI 重新定义学习</title>
+  <meta name="description" content="上海觅码寻韵科技有限公司，专注于 AI 驱动的教育产品。">
+  <meta name="keywords" content="CodeRhythm,码韵科技,AI教育,小葡萄,英语学习">
+  <link rel="icon" href="https://littlegrape.coderhythm.cn/favicon.png">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --primary: #7C5CFC;
+      --primary-dark: #6344E0;
+      --primary-light: #A78BFA;
+      --bg: #FAFAFE;
+      --bg-card: #FFFFFF;
+      --text: #1E293B;
+      --text-secondary: #475569;
+      --text-tertiary: #94A3B8;
+      --border: #E8E5F0;
+    }
+
+    body {
+      font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .container { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+
+    /* ==================== Header ==================== */
+    header {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+      background: rgba(255,255,255,0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    header .container {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 64px;
+    }
+    .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); }
+    .logo-icon {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-weight: 700; font-size: 16px;
+    }
+    .logo-text { font-size: 18px; font-weight: 700; letter-spacing: -0.5px; }
+    header nav a {
+      color: var(--text-secondary); text-decoration: none; font-size: 14px;
+      margin-left: 28px; transition: color 0.2s;
+    }
+    header nav a:hover { color: var(--primary); }
+
+    /* ==================== Hero ==================== */
+    .hero {
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      text-align: center; position: relative; overflow: hidden;
+    }
+    .hero::before {
+      content: ''; position: absolute; top: -200px; right: -200px;
+      width: 600px; height: 600px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(124,92,252,0.08), transparent 70%);
+    }
+    .hero::after {
+      content: ''; position: absolute; bottom: -100px; left: -150px;
+      width: 400px; height: 400px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(124,92,252,0.06), transparent 70%);
+    }
+    .hero-content { position: relative; z-index: 1; max-width: 640px; }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 16px; border-radius: 100px;
+      background: rgba(124,92,252,0.08); color: var(--primary);
+      font-size: 13px; font-weight: 500; margin-bottom: 28px;
+    }
+    .hero-badge::before {
+      content: ''; width: 6px; height: 6px; border-radius: 50%;
+      background: var(--primary); animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+    .hero h1 { font-size: clamp(36px, 6vw, 56px); font-weight: 800; line-height: 1.2; letter-spacing: -1px; }
+    .hero h1 span {
+      background: linear-gradient(135deg, var(--primary), #EC4899);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero p { margin-top: 20px; font-size: 18px; color: var(--text-secondary); line-height: 1.7; }
+
+    /* ==================== Product ==================== */
+    .product { padding: 100px 0; }
+    .section-label {
+      display: inline-block; padding: 5px 14px; border-radius: 100px;
+      background: rgba(124,92,252,0.08); color: var(--primary);
+      font-size: 13px; font-weight: 500; margin-bottom: 12px;
+    }
+    .section-title { font-size: 32px; font-weight: 700; margin-bottom: 8px; }
+    .section-desc { color: var(--text-secondary); font-size: 16px; margin-bottom: 48px; }
+
+    .product-card {
+      display: flex; align-items: center; gap: 48px;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 24px; padding: 48px; transition: all 0.3s;
+    }
+    .product-card:hover { box-shadow: 0 16px 48px rgba(124,92,252,0.1); transform: translateY(-2px); }
+
+    .product-icon {
+      flex-shrink: 0; width: 80px; height: 80px; border-radius: 20px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      display: flex; align-items: center; justify-content: center;
+    }
+    .product-icon img { width: 52px; height: 52px; border-radius: 12px; }
+    .product-info { flex: 1; }
+    .product-info h3 { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+    .product-info p { color: var(--text-secondary); font-size: 15px; line-height: 1.7; margin-bottom: 16px; }
+    .product-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+    .product-tags span {
+      padding: 4px 12px; border-radius: 100px; font-size: 12px; font-weight: 500;
+      background: rgba(124,92,252,0.06); color: var(--primary);
+    }
+    .product-link {
+      display: inline-flex; align-items: center; gap: 6px;
+      margin-top: 20px; color: var(--primary); font-size: 14px; font-weight: 600;
+      text-decoration: none; transition: gap 0.2s;
+    }
+    .product-link:hover { gap: 10px; }
+    .product-link svg { width: 16px; height: 16px; }
+
+    /* ==================== About ==================== */
+    .about { padding: 80px 0 100px; }
+    .about-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    .about-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 16px; padding: 32px; text-align: center; transition: all 0.3s;
+    }
+    .about-card:hover { box-shadow: 0 8px 32px rgba(124,92,252,0.08); transform: translateY(-2px); }
+    .about-card .icon { font-size: 28px; margin-bottom: 16px; }
+    .about-card h4 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+    .about-card p { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+
+    /* ==================== Footer ==================== */
+    footer {
+      border-top: 1px solid var(--border); padding: 40px 0;
+      text-align: center; color: var(--text-tertiary); font-size: 13px;
+    }
+    footer a { color: var(--text-tertiary); text-decoration: none; transition: color 0.2s; }
+    footer a:hover { color: var(--primary); }
+    footer .contact { margin-bottom: 12px; color: var(--text-secondary); }
+    footer .links { display: flex; justify-content: center; gap: 24px; margin-bottom: 16px; }
+
+    /* ==================== Responsive ==================== */
+    @media (max-width: 768px) {
+      .product-card { flex-direction: column; gap: 24px; padding: 32px; text-align: center; }
+      .product-tags { justify-content: center; }
+      .about-grid { grid-template-columns: 1fr; }
+      header nav a { margin-left: 16px; font-size: 13px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="container">
+      <a href="/" class="logo">
+        <div class="logo-icon">C</div>
+        <span class="logo-text">CodeRhythm</span>
+      </a>
+      <nav>
+        <a href="#product">产品</a>
+        <a href="#about">关于</a>
+        <a href="mailto:team@coderhythm.cn">联系我们</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-content">
+      <div class="hero-badge">上海觅码寻韵科技</div>
+      <h1>用 AI 重新定义<br><span>学习体验</span></h1>
+      <p>我们相信技术可以让学习更自然、更高效。<br>通过 AI 驱动的产品，帮助每个人找到适合自己的学习方式。</p>
+    </div>
+  </section>
+
+  <!-- Product -->
+  <section class="product" id="product">
+    <div class="container">
+      <div class="section-label">我们的产品</div>
+      <h2 class="section-title">小葡萄</h2>
+      <p class="section-desc">「会读、会说、会用」的 AI 英语学习应用</p>
+
+      <div class="product-card">
+        <div class="product-icon">
+          <img src="https://littlegrape.coderhythm.cn/images/logo.png" alt="小葡萄">
+        </div>
+        <div class="product-info">
+          <h3>小葡萄 — AI 英语学习</h3>
+          <p>音素级发音纠正、8 位 AI 对话伙伴、沉浸式剧情学习、智能单词复习、文章精读讲解，打造完整的英语学习闭环。</p>
+          <div class="product-tags">
+            <span>AI 对话</span>
+            <span>发音评估</span>
+            <span>剧情学习</span>
+            <span>智能复习</span>
+            <span>文章精读</span>
+          </div>
+          <a href="https://littlegrape.coderhythm.cn" class="product-link" target="_blank">
+            了解更多
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- About -->
+  <section class="about" id="about">
+    <div class="container">
+      <div class="section-label">关于我们</div>
+      <h2 class="section-title">觅码寻韵科技</h2>
+      <p class="section-desc">专注于 AI 教育产品的技术团队</p>
+
+      <div class="about-grid">
+        <div class="about-card">
+          <div class="icon">🤖</div>
+          <h4>AI 驱动</h4>
+          <p>将前沿 AI 技术融入产品，让学习体验更智能、更个性化</p>
+        </div>
+        <div class="about-card">
+          <div class="icon">🎯</div>
+          <h4>产品为先</h4>
+          <p>深入理解用户痛点，打磨每一个细节，做真正解决问题的产品</p>
+        </div>
+        <div class="about-card">
+          <div class="icon">🚀</div>
+          <h4>持续进化</h4>
+          <p>快速迭代、持续优化，让产品与用户一起成长</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <div class="contact">team@coderhythm.cn</div>
+      <div class="links">
+        <a href="https://littlegrape.coderhythm.cn" target="_blank">小葡萄官网</a>
+        <a href="https://littlegrape.coderhythm.cn/privacy" target="_blank">隐私政策</a>
+        <a href="https://littlegrape.coderhythm.cn/terms" target="_blank">用户协议</a>
+      </div>
+      <div>&copy; 2024-2026 上海觅码寻韵科技有限公司</div>
+      <div style="margin-top: 6px;">
+        <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">沪ICP备2024093866号-2</a>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
